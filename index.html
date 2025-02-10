@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Facilities in Nairobi</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.0/leaflet.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="source/jquery-ui.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="plugins/sidebar/L.Control.Sidebar.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-easybutton@2/src/easy-button.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <link rel="stylesheet" href="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.css" />
+    <link rel="stylesheet" href="plugins/mouseposition/L.Control.MousePosition.css">
+    <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css"/>
+    <link rel="stylesheet" href="plugins/minimap/Control.MiniMap.min.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.0/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.js"></script>
+    <script src="source/jquery-ui.min.js"></script>
+    <script src="plugins/sidebar/L.Control.Sidebar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-easybutton@2/src/easy-button.js"></script>
+    <script src="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.js"></script>
+    <script src="plugins/mouseposition/L.Control.MousePosition.js"></script>
+    <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.js"></script>
+    <script src="plugins/minimap/Control.MiniMap.min.js"></script>
+    <script src="plugins/ajax/leaflet.ajax.js"></script>
+
+    <style>
+	    .info {
+	    padding: 6px 8px;
+	    font: 14px/16px Arial, Helvetica, sans-serif;
+	    background: white;
+	    background: rgba(255,255,255,0.8);
+	    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+	    border-radius: 5px;
+		}
+		.info h4 {
+		    margin: 0 0 5px;
+		    color: #777;
+		}
+
+		.legend {
+		    line-height: 18px;
+		    color: #555;
+		}
+		.legend i {
+		    width: 18px;
+		    height: 18px;
+		    float: left;
+		    margin-right: 8px;
+		    opacity: 0.7;
+		}
+		        
+    </style>
+</head>
+<body>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- <div id="sidebar" class="col-md-3"></div> -->
+            <div id="mapdiv" class="col-md-12"></div>
+        </div>
+    </div>
+
+    <script>
+
+    	var baseLayers;
+		var overlays;
+		var geojson;
+
+        var mymap = L.map('mapdiv', {
+            center: [-1.3086952470068256, 36.835699700071935],
+            zoom: 11,
+            attributionControl: false,
+            zoomControl: false
+        });
+
+        // Add a base map
+
+        var GoogleStreets = L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',{
+			maxZoom:23,
+			subdomains:['mt0','mt1','mt2','mt3']
+		});
+
+		GoogleStreets.addTo(mymap);
+
+        var OpenStreetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(mymap);
+
+        
+
+		//LAYER CONTROL
+		baseLayers = {
+	    "Google Streets": GoogleStreets,
+	    "Open Street Map": OpenStreetMap
+
+		};
+
+		var control_Layers = L.control.layers(baseLayers,overlays).addTo(mymap);
+
+		
+
+
+		//NAIROBI WARDS
+		geojson = L.geoJson.ajax('data/count_wards.geojson', {
+		    style: style,
+		    onEachFeature: onEachFeature}).addTo(mymap);
+
+		function getColor(h){
+			return h > 72  ? '#800026' :
+		           h > 46  ? '#BD0026' :
+		           h > 21  ? '#E31A1C' :
+		           h > 12  ? '#FC4E2A' :
+		           h > 5   ? '#FD8D3C' :
+		           h > 0   ? '#FEB24C' :
+		                     '#FFEDA0';
+		}
+
+
+		function style(feature){
+			return{
+				fillColor: getColor(feature.properties.NUMPOINTS),
+				weight: 2,
+				opacity: 1,
+				color: 'white',
+				dashArray: '3',
+				fillOpacity: 0.7
+			};
+		}
+
+		function highlightFeature(e){
+			var layer = e.target;
+			info.update(layer.feature.properties);
+
+			layer.setStyle({
+				weight: 5,
+				color: '#666',
+				dashArray: '',
+				fillOpacity: 0.7
+			});
+
+			layer.bringToFront();			
+		}
+
+		function resetHighlight(e){
+			geojson.resetStyle(e.target);
+			info.update();
+		}
+
+		function zoomToFeature(e){
+			mymap.fitBounds(e.target.getBounds());
+		}
+
+
+		function onEachFeature(feature, layer){
+			layer.on({
+				mouseover: highlightFeature,
+				mouseout: resetHighlight,
+				click: zoomToFeature
+			});
+		}
+
+		var info = L.control();
+
+		info.onAdd = function (map){
+			this._div = L.DomUtil.create('div', 'info');
+			this.update();
+			return this._div;
+		};
+
+		info.update = function (props){
+			this._div.innerHTML = '<h4>Nairobi Health Facilities</h4>' + (props ? '<b>' + props.ward + '</b><br/>'+ props.NUMPOINTS + ' Health Facilities': 'Hover over a Ward');
+		};
+
+		info.addTo(mymap);
+
+		//CREATING A LEGEND
+
+		var legend = L.control({position: 'bottomright'});
+		legend.onAdd = function(map){
+			var div = L.DomUtil.create('div', 'info legend'),
+			grades = [0, 5, 12, 21, 46, 72],
+			labels = [];
+		
+
+
+		for(var i = 0; i< grades.length; i++){
+			div.innerHTML += 
+			'<i style="background:' + getColor(grades[i] + 1) + '"></i>'+
+			grades[i] + (grades[i +1] ? '&ndash;' +grades[i + 1] + '<br>' : '+');
+
+		}
+
+		return div;
+	};
+
+
+	legend.addTo(mymap);
+
+	control_Layers.addOverlay(geojson, "Nairobi Wards");
+
+
+		
+		
+
+		//HEALTH FACILITIES
+
+		var nairobiHealth = L.geoJson.ajax('data/health_facilities2.geojson', {
+		    pointToLayer: style_healthF
+		}).addTo(mymap);
+
+		nairobiHealth.on('data:loaded', function () {
+		    mymap.fitBounds(nairobiHealth.getBounds()); 
+		});
+
+		function style_healthF(json, latlng) {
+		    var att = json.properties;
+		    var color, fill_color;
+		    var radius = 2;
+		    var fillOpacity = 1;
+
+		    switch (att.Keph_Level) {
+		        case 'Level_ 2': 
+		            color = '#de2d26';
+		            fill_color = '#de2d26';
+		            break;
+		        case 'Level_ 3':
+		            color = '#feb24c';
+		            fill_color = '#feb24c';
+		            break;
+		        case 'Level_ 4':
+		            color = '#31a354';
+		            fill_color = '#31a354';
+		            break;
+		        case 'Level_ 5':
+		            color = '#c51b8a';
+		            fill_color = '#c51b8a';
+		            break;
+		        case 'Level_ 6':
+		            color = '#377eb8';
+		            fill_color = '#377eb8';
+		            break;
+		        default:
+		            color = '#636363';
+		            fill_color = '#636363';
+		            break;
+		    }
+
+		    
+		    return L.circleMarker(latlng, {
+		        radius: radius,
+		        color: color,
+		        fillColor: fill_color,
+		        fillOpacity: fillOpacity
+		    }).bindTooltip("Name: " + att.Name + "<br>Level: " + att.Keph_Level + "<br>Facility Type: " + att.Facility_type + "<br> Owner: " +att.Owner);
+		}
+
+		// Legend
+		control_Layers.addOverlay(nairobiHealth, "Health Facilities");
+
+		
+		var legend = L.control({ position: 'bottomleft' });
+
+		legend.onAdd = function (map) {
+		    var div = L.DomUtil.create('div', 'info legend');
+		    var levels = ['Level_ 2', 'Level_ 3', 'Level_ 4', 'Level_ 5', 'Level_ 6'];
+		    var colors = ['#de2d26', '#feb24c', '#31a354', '#c51b8a', '#377eb8'];
+
+		    div.innerHTML += "<h4>Health Facility Levels</h4>";
+		    for (var i = 0; i < levels.length; i++) {
+		        div.innerHTML +=
+		            '<i style="background:' + colors[i] + '"></i> ' +
+		            levels[i] + '<br>';
+		    }
+		    return div;
+		};
+
+		legend.addTo(mymap);
+
+
+    </script>
+
+</body>
+</html>
